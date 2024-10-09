@@ -1,0 +1,9 @@
+ip: "172.31.47.188"
+dns: "8.8.8.8"
+search: "test.local"
+hostname: "dc1.test.local"
+hosts: "127.0.0.1 test.local"
+samba_realm: "TEST.LOCAL"
+samba_admin_user: "Administrator"
+netbios_domain_name: "name"
+adminpass: Mepuri29

@@ -1,0 +1,115 @@
+---
+- name: SambaAD Setup
+  hosts: all
+  become: yes
+  vars:
+    ansible_become_pass: "Den2034Dns"
+    
+  vars_files:
+    - defaults/main.yml
+
+
+
+  tasks:
+    
+    - name: Ensure localhost is defined in /etc/hosts
+      lineinfile:
+        path: /etc/hosts
+        line: "127.0.0.1 localhost"
+        state: present
+
+    - name: Ensure domain controller is defined in /etc/hosts
+      lineinfile:
+        path: /etc/hosts
+        line: "{{ip}} {{hostname}}"
+        state: present
+
+
+
+    
+
+    - name: Set the hostname
+      hostname:
+        name: "{{ hostname }}"
+      become: yes
+
+    
+    - name: Insert DNS 
+      blockinfile:
+        path: /etc/systemd/system/
+        block: |
+          [Resolve]
+          DNS={{ip}} {{dns}}
+          Domains={{search}}
+        marker: "# {mark} ANSIBLE MANAGED BLOCK"
+      become: yes
+    
+    - name: Reload systemd manager configuration
+      command: systemctl daemon-reload
+
+    - name: Restart systemd-resolved service
+      systemd:
+        name: systemd-resolved
+        state: restarted
+
+
+    
+
+    - name: Установка необходимых пакетов
+      apt:
+        name:
+          - acl
+          - attr
+          - samba
+          - winbind
+          - libpam-winbind
+          - libnss-winbind
+          - krb5-config
+          - krb5-user
+          - dnsutils
+          - python3-setproctitle
+        state: present
+        update_cache: yes
+      become: yes
+
+    - name: Configure /etc/krb5.conf
+      template:
+        src: krb5.conf.j2
+        dest: /etc/krb5.conf
+      notify: Restart Kerberos
+      become: yes
+
+    - name: Disable and stop services
+      systemd:
+        name: "{{ item }}"
+        enabled: no
+        state: stopped
+      loop:
+        - smbd
+        - nmbd
+        - winbind
+      become: yes
+
+    - name: Unmask samba-ad-dc
+      file:
+        path: /etc/systemd/system/samba-ad-dc.service
+        state: absent
+      become: yes
+
+    - name: Reload systemd daemon
+      systemd:
+        daemon_reload: yes
+      become: yes     
+
+    - name: Activate samda-ad-dc
+      systemd:
+        name: samba-ad-dc
+        state: started
+        enabled: yes
+      become: yes      
+
+    - name: Remove /etc/samba/smb.conf
+      file:
+        path: /etc/samba/smb.conf
+        state: absent
+      become: yes
